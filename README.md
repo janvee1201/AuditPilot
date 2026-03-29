@@ -379,12 +379,7 @@ The briefing arrives in your inbox before you open your laptop. It's not a dashb
 ### 6. 🤝 Multi-Agent Collaboration
 The Master Orchestrator can invoke multiple workflow agents in sequence or parallel for compound tasks. Agents share intermediate state through the centralized database and pattern memory.
 
----
 
-## 🏆 Built For
-
-**GenAI Hackathon 2025**  
-Powered by LangGraph · FastAPI · OpenRouter · SQLite · APScheduler
 
 ---
 
