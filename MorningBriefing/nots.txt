@@ -1,0 +1,14 @@
+Product sync meeting - 14th March 2024
+Attendees: Priya, Rahul, Neha, Arjun, and finance team
+
+Discussed Q1 launch timeline. Priya said the marketing deck needs to be updated 
+with new pricing by this friday otherwise the client presentation will be delayed. 
+Rahul needs to look into the API integration issue that came up last week - 
+Arjun said it should be done before end of next week. We also need someone to 
+finalize the budget approval for the Singapore office expansion, neha said she 
+can handle that but needs sign off from finance. arjun to coordinate with the 
+Singapore team on timezone scheduling - no hard deadline but ideally before 
+the month ends. finance team to send updated projections by wednesday.
+
+Also discussed - the old CRM migration is still pending from last quarter, 
+nobody has picked this up yet. Rahul to check on status.

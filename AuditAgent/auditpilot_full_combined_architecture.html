@@ -1,0 +1,352 @@
+
+<div id="chart"></div>
+<script type="module">
+import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+await document.fonts.ready;
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'base',
+  fontFamily: '"Anthropic Sans", sans-serif',
+  fontSize: '13px',
+  flowchart: { curve: 'basis', padding: 18, nodeSpacing: 32, rankSpacing: 44 },
+  themeVariables: {
+    darkMode: dark,
+    fontSize: '13px',
+    fontFamily: '"Anthropic Sans", sans-serif',
+    primaryColor: dark ? '#2e2a4a' : '#EEEDFE',
+    primaryTextColor: dark ? '#c5c1f5' : '#3C3489',
+    primaryBorderColor: dark ? '#7F77DD' : '#7F77DD',
+    secondaryColor: dark ? '#083326' : '#E1F5EE',
+    secondaryTextColor: dark ? '#5DCAA5' : '#085041',
+    secondaryBorderColor: dark ? '#1D9E75' : '#1D9E75',
+    tertiaryColor: dark ? '#1e1508' : '#FAEEDA',
+    tertiaryTextColor: dark ? '#EF9F27' : '#633806',
+    tertiaryBorderColor: dark ? '#BA7517' : '#BA7517',
+    lineColor: dark ? '#7F77DD' : '#534AB7',
+    edgeLabelBackground: dark ? '#1a1a2e' : '#f5f4fe',
+    clusterBkg: dark ? '#0f1520' : '#f4f3ff',
+    clusterBorder: dark ? '#2a2a4a' : '#c8c5f5',
+    background: 'transparent',
+    noteBkgColor: dark ? '#141a22' : '#f1efe8',
+    noteTextColor: dark ? '#9e9c94' : '#444441',
+  }
+});
+
+const diagram = `
+flowchart TD
+
+  %% ════════════════════════════════════
+  %% LAYER 0 — ENTRY & AUTH
+  %% ════════════════════════════════════
+  subgraph ENTRY["  Entry & Auth  "]
+    ROOT(["/ Root"]):::start
+    LOGIN["Login page\n/login"]:::page
+    FORK{Portal\nselector}:::decision
+    ROOT --> LOGIN --> FORK
+  end
+
+  FORK -->|Admin creds| ADMIN_SHELL["Admin portal shell\n/admin/*"]:::portal
+  FORK -->|Vendor creds| VENDOR_SHELL["Vendor portal shell\n/portal/*"]:::portal
+
+  %% Self-register
+  LOGIN --> REG["Vendor self-register\n/register"]:::page
+  REG -->|"Submit form"| FASTAPI
+
+  %% ════════════════════════════════════
+  %% LAYER 1 — FASTAPI BACKEND
+  %% ════════════════════════════════════
+  subgraph BACKEND["  FastAPI Backend — main.py  "]
+    FASTAPI["FastAPI server\nmain.py entry"]:::backend
+    ROUTER["API router layer\n/workflow · /briefing · /explain\n/logs · /traces · /memory"]:::backend
+    FASTAPI --> ROUTER
+  end
+
+  ADMIN_SHELL -->|"Work Query POST /workflow"| FASTAPI
+  VENDOR_SHELL -->|"Data read requests"| ROUTER
+
+  %% ════════════════════════════════════
+  %% LAYER 2 — MASTER ORCHESTRATOR
+  %% ════════════════════════════════════
+  subgraph ORCH["  Master Orchestrator — LLM reasoning layer  "]
+    direction TB
+    OC1["Step 1 — intent classification\nClaude API · knows W1/W2/W3"]:::orch
+    OC2{"Step 2 — confidence\ncheck ≥ 0.85?"}:::orchdec
+    CLARIFY["Clarification node\nask user: did you mean X or Y?"]:::orchpink
+    OC3["Step 3 — multi-task splitter\n1 task → single · 2+ → parallel spawn"]:::orchpink
+    OC4["Step 4 — state builder + param extractor\nonboard Krishna → client_name, route:W1\npay Tata ₹50k → vendor, amount, route:W2"]:::orchpink
+
+    OC1 --> OC2
+    OC2 -->|"low / unclear"| CLARIFY
+    CLARIFY -.->|"user replies"| OC1
+    OC2 -->|"confident ≥ 0.85"| OC3
+    OC3 --> OC4
+  end
+
+  ROUTER -->|"POST /workflow"| OC1
+
+  %% ════════════════════════════════════
+  %% LAYER 3 — AGENT WORKFLOWS
+  %% ════════════════════════════════════
+
+  OC4 -->|"invoke W1"| W1_BAND
+  OC4 -->|"invoke W2"| W2_BAND
+  OC4 -->|"invoke W3"| W3_BAND
+
+  subgraph W1_BAND["  W1 — Client Onboarding  "]
+    direction TB
+    W1H["W1 header band"]:::w1label
+    W1T1["T1 intake\nlog new client request"]:::w1
+    W1T2["T2 duplicate check\nemail / GSTIN in DB"]:::w1
+    W1T3["T3 KYC verify\nPOST /mock/kyc/verify"]:::w1
+    W1T4["T4 create account\nsave + welcome email"]:::w1
+    W1OK(["W1 success\nclient onboarded"]):::ok
+    W1ERR["W1 error node\ncalls run_w4()"]:::err
+    W1H --> W1T1 --> W1T2 --> W1T3 --> W1T4 --> W1OK
+    W1T2 -.->|"duplicate"| W1ERR
+    W1T3 -.->|"KYC fail"| W1ERR
+  end
+
+  subgraph W2_BAND["  W2 — Procurement / Payments  "]
+    direction TB
+    W2H["W2 header band"]:::w2label
+    W2T5["T5 intake\nlog PO processing"]:::w2
+    W2T6["T6 validation\ninvoice vs PO match"]:::w2
+    W2T7["T7 vendor check\nGET /mock/vendor/{id}"]:::w2
+    W2T8["T8 approval\nauto if amount ≤ 1,00,000"]:::w2
+    W2T8B["T8b payment\nPOST /mock/payment"]:::w2
+    W2ORCH["W2 orchestrator\nerror → calls W4 · no error → complete"]:::w4amber
+    W2OK(["W2 success\npaid / escalated"]):::ok
+    W2H --> W2T5 --> W2T6 --> W2T7 --> W2T8 --> W2T8B --> W2ORCH --> W2OK
+    W2T6 -.->|"mismatch"| W2ORCH
+    W2T7 -.->|"vendor fail"| W2ORCH
+  end
+
+  subgraph W3_BAND["  W3 — Meeting Notes to Tasks  "]
+    direction TB
+    W3H["W3 header band"]:::w3label
+    W3T9["T9 parse notes\nClaude API → tasks JSON"]:::w3
+    W3T10["T10 owner resolution\nmatch assignees to DB users"]:::w3
+    W3T11["T11 write tasks\ninsert into tasks table"]:::w3
+    W3T12["T12 notify\npush to vendor portal"]:::w3
+    W3OK(["W3 success\ntasks created"]):::ok
+    W3ERR["W3 error node\ncalls run_w4()"]:::err
+    W3H --> W3T9 --> W3T10 --> W3T11 --> W3T12 --> W3OK
+    W3T10 -.->|"ambiguous owner"| W3ERR
+    W3T9 -.->|"parse fail"| W3ERR
+  end
+
+  %% ════════════════════════════════════
+  %% LAYER 4 — W4 MONITOR (cross-cutting)
+  %% ════════════════════════════════════
+  subgraph W4_BAND["  W4 — Pattern Monitor + Briefing (cross-cutting)  "]
+    direction TB
+    W4H["W4 header band"]:::w4label
+    W4T13["T13 detect patterns\nread error log + traces"]:::w4
+    W4T14["T14 read pattern_memory\ncompare vs known patterns"]:::w4
+    W4T15{"T15 decide\nretry or escalate?"}:::w4dec
+    W4T16["T16 write pattern_memory\nupdate confidence scores"]:::w4
+    W4T17["T17 systemic alert\npush to escalation inbox"]:::w4alert
+    W4T18["T18 morning briefing\n08:45 APScheduler · SMTP email\nall decisions + resume links"]:::w4
+    W4H --> W4T13 --> W4T14 --> W4T15
+    W4T15 -->|"retry"| W4T16
+    W4T15 -->|"escalate"| W4T17
+    W4T16 --> W4T18
+    W4T17 --> W4T18
+  end
+
+  W1ERR -->|"run_w4()"| W4_BAND
+  W2ORCH -->|"run_w4()"| W4_BAND
+  W3ERR -->|"run_w4()"| W4_BAND
+
+  %% ════════════════════════════════════
+  %% LAYER 5 — RESULT COLLECTOR
+  %% ════════════════════════════════════
+  subgraph RESULT["  Result collector + reply builder  "]
+    RC["Step 5 — result collector\ncollects outcomes from all invoked workflows\nwaits for all to complete · builds unified reply"]:::orchpink
+    REPLY["Reply displayed on frontend\nKrishna Logistics onboarded. Client ID C-012."]:::replynode
+    RC --> REPLY
+  end
+
+  W1OK --> RC
+  W2OK --> RC
+  W3OK --> RC
+
+  %% ════════════════════════════════════
+  %% LAYER 6 — DATABASE
+  %% ════════════════════════════════════
+  subgraph DB_BAND["  Database layer  "]
+    SQLITE["SQLite DB"]:::db
+    STATICJSON["Static JSON data"]:::db
+    PTABLE["pattern_memory table\nT14 reads · T16 writes"]:::db4
+  end
+
+  W1OK --> SQLITE
+  W2OK --> SQLITE
+  W3OK --> SQLITE
+  W4T16 --> PTABLE
+  W4T14 --> PTABLE
+
+  %% ════════════════════════════════════
+  %% LAYER 7 — UTILS
+  %% ════════════════════════════════════
+  subgraph UTILS["  Utils  "]
+    LOGGER["Logger"]:::util
+    LIVELOGS["Live logs"]:::util
+    HITL["Human-in-the-loop"]:::util
+  end
+
+  ROUTER -.->|"/logs route"| LOGGER
+  ROUTER -.->|"/traces route"| LIVELOGS
+  W4T17 -.->|"escalation"| HITL
+
+  %% ════════════════════════════════════
+  %% LAYER 8 — ADMIN PORTAL PAGES
+  %% ════════════════════════════════════
+  subgraph ADMIN_PAGES["  Admin portal pages  "]
+    direction TB
+
+    subgraph P_DASH["Dashboard /admin/dashboard"]
+      AD1["Live W1/W2/W3/W4 terminal\nstreams from /traces route"]:::adminpage
+      AD2["KPI cards\ntasks · escalations · retries"]:::adminpage
+      AD3["Workflow distribution\nprogress bars"]:::adminpage
+    end
+
+    subgraph P_WQ["Work Query /admin/workquery"]
+      WQ1["Natural language textarea\nplain-English command"]:::wqpage
+      WQ2["Example chips\n6 quick-fill queries"]:::wqpage
+      WQ3["Orchestrator preview\nlive intent as you type"]:::wqpage
+      WQ4["Orchestrator trace terminal\nstep-by-step pipeline log"]:::wqpage
+      WQ5["Agent routing map\nkeyword → W1/W2/W3/W4"]:::wqpage
+      WQ6["Session query history\nre-usable past queries"]:::wqpage
+    end
+
+    subgraph P_VM["Vendor Manager /admin/vendors"]
+      AV1["Vendor table\nsearch · filter · KYC badges"]:::adminpage
+      AV2["Onboard vendor form\ntriggers W1 via Work Query"]:::adminpage
+    end
+
+    subgraph P_ESC["Escalation Inbox /admin/escalations"]
+      AE1["W4 pattern spike card\nApprove / Reject"]:::adminpage
+      AE2["W3 ambiguous owner card\nAssign owner"]:::adminpage
+      AE3["W1 KYC failure card\nOverride / Reject"]:::adminpage
+    end
+
+    subgraph P_PAT["Pattern Memory /admin/patterns"]
+      APT1["W4 memory table\nretry rates · anomaly scores"]:::adminpage
+      APT2["Retry spike histogram\nreads pattern_memory table"]:::adminpage
+    end
+
+    subgraph P_BRIEF["Briefings /admin/briefings"]
+      AB1["LLM briefing email preview\nAPScheduler 08:45"]:::adminpage
+      AB2["Send history · manual trigger"]:::adminpage
+    end
+
+    subgraph P_WF["All Workflows /admin/workflows"]
+      AWF1["W1/W2/W3/W4 instances\ncurrent step · status"]:::adminpage
+    end
+  end
+
+  ADMIN_SHELL --> ADMIN_PAGES
+  REPLY -->|"stream to UI"| WQ4
+  LIVELOGS -->|"live feed"| AD1
+  LOGGER -.-> AWF1
+  PTABLE -.-> APT1
+  W4T18 -.-> AB1
+  W4T17 -.-> AE1
+  W4T17 -.-> AE2
+  W4T17 -.-> AE3
+
+  AE1 -.->|"Approve → POST /workflow/resume"| ROUTER
+  AV2 -->|"triggers via Work Query"| WQ1
+  WQ1 -->|"POST /workflow"| FASTAPI
+
+  %% ════════════════════════════════════
+  %% LAYER 9 — VENDOR PORTAL PAGES
+  %% ════════════════════════════════════
+  subgraph VENDOR_PAGES["  Vendor portal pages  "]
+    direction TB
+
+    subgraph VP_PROF["Profile & KYC /portal/profile"]
+      VP1["Company details grid\nKYC status banner"]:::vendorpage
+      VP2["Document upload\ntriggers W1 re-verify"]:::vendorpage
+    end
+
+    subgraph VP_LED["Points Ledger /portal/ledger"]
+      VL1["Balance display\nanimated counter"]:::vendorpage
+      VL2["Transaction ledger\nRef ID · amount · running balance"]:::vendorpage
+    end
+
+    subgraph VP_TASK["My Tasks /portal/tasks"]
+      VT1["Task list from W3\ndue date · assignee · status"]:::vendorpage
+      VT2["Mark complete\nPOST /workflow/complete webhook"]:::vendorpage
+    end
+
+    subgraph VP_WF["Workflow Status /portal/workflows"]
+      VW1["W1 / W2 / W3 step trackers\nanimated current step"]:::vendorpage
+    end
+
+    subgraph VP_NOTIF["Notifications /portal/notifications"]
+      VN1["Payment credited\nW2 WebSocket push"]:::vendorpage
+      VN2["KYC verified · tasks assigned\nW1 / W3 push"]:::vendorpage
+    end
+  end
+
+  VENDOR_SHELL --> VENDOR_PAGES
+  W3T12 -.->|"WebSocket push"| VN2
+  W2OK -.->|"WebSocket push"| VN1
+  W1OK -.->|"KYC result"| VP1
+  W3OK -.->|"tasks written"| VT1
+  VT2 -->|"completion webhook"| ROUTER
+  VP2 -->|"re-verify W1"| FASTAPI
+
+  %% ════════════════════════════════════
+  %% SECURITY (cross-cutting)
+  %% ════════════════════════════════════
+  SEC["Security layer\nJWT · CORS · API key validation"]:::security
+  ADMIN_SHELL & VENDOR_SHELL --> SEC
+  SEC --> FASTAPI
+
+  %% ════════════════════════════════════
+  %% STYLES
+  %% ════════════════════════════════════
+  classDef start        fill:#E1F5EE,stroke:#1D9E75,color:#085041
+  classDef page         fill:#EEEDFE,stroke:#7F77DD,color:#3C3489
+  classDef portal       fill:#534AB7,stroke:#3C3489,color:#fff
+  classDef backend      fill:#B5D4F4,stroke:#185FA5,color:#042C53
+  classDef orch         fill:#FAECE7,stroke:#993C1D,color:#4A1B0C
+  classDef orchdec      fill:#FBEAF0,stroke:#993556,color:#4B1528
+  classDef orchpink     fill:#FBEAF0,stroke:#D4537E,color:#4B1528
+  classDef w1label      fill:#0F6E56,stroke:#1D9E75,color:#E1F5EE
+  classDef w1           fill:#E1F5EE,stroke:#1D9E75,color:#085041
+  classDef w2label      fill:#0C447C,stroke:#378ADD,color:#E6F1FB
+  classDef w2           fill:#E6F1FB,stroke:#378ADD,color:#042C53
+  classDef w3label      fill:#3B6D11,stroke:#639922,color:#EAF3DE
+  classDef w3           fill:#EAF3DE,stroke:#639922,color:#173404
+  classDef w4label      fill:#633806,stroke:#BA7517,color:#FAEEDA
+  classDef w4           fill:#FAEEDA,stroke:#BA7517,color:#412402
+  classDef w4amber      fill:#FAEEDA,stroke:#BA7517,color:#412402
+  classDef w4dec        fill:#FAC775,stroke:#BA7517,color:#412402
+  classDef w4alert      fill:#F7C1C1,stroke:#A32D2D,color:#501313
+  classDef ok           fill:#EAF3DE,stroke:#3B6D11,color:#173404
+  classDef err          fill:#FCEBEB,stroke:#A32D2D,color:#501313
+  classDef db           fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
+  classDef db4          fill:#FAEEDA,stroke:#854F0B,color:#412402
+  classDef util         fill:#EEEDFE,stroke:#7F77DD,color:#26215C
+  classDef adminpage    fill:#E6F1FB,stroke:#378ADD,color:#042C53
+  classDef wqpage       fill:#CECBF6,stroke:#534AB7,color:#26215C
+  classDef vendorpage   fill:#E1F5EE,stroke:#1D9E75,color:#085041
+  classDef security     fill:#FAECE7,stroke:#993C1D,color:#4A1B0C
+  classDef replynode    fill:#F1EFE8,stroke:#5F5E5A,color:#2C2C2A
+  classDef decision     fill:#FAEEDA,stroke:#BA7517,color:#633806
+`;
+
+const { svg } = await mermaid.render('full-arch-svg', diagram);
+document.getElementById('chart').innerHTML = svg;
+const svgEl = document.querySelector('#chart svg');
+if (svgEl) {
+  svgEl.style.width = '100%';
+  svgEl.style.maxWidth = '100%';
+  svgEl.removeAttribute('height');
+}
+</script>
