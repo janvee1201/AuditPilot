@@ -45,6 +45,11 @@ Modern enterprises lose 40–60% of their operational bandwidth to three categor
 | 🏝️ Isolated workflows | No shared intelligence | All 3 workflows share one W4 pattern memory layer |
 
 ---
+## 🌐 Live Demo
+
+Visit the deployed application here:
+
+[![Live Demo](https://img.shields.io/badge/Live-Demo-blue?style=for-the-badge)](https://audit-pilot-lemon.vercel.app/)
 
 ## 🧠 System Architecture
 
